@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ເກມເກັບເຫັດແຂວງຫົວພັນ - Houaphanh Mushroom Collector</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts for Lao Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;600;700;800;900&family=Phetsarath&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans Lao', 'Phetsarath OT', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            overflow-x: hidden;
+            touch-action: manipulation;
+        }
+
+        /* Custom Pixel/Cartoon Wood Texture Backdrop */
+        .game-bg {
+            background: linear-gradient(180deg, #1e3c72 0%, #2a5298 40%, #2e7d32 75%, #1b5e20 100%);
+        }
+
+        /* Mushroom spawn animation */
+        @keyframes mushroomPop {
+            0% { transform: scale(0) translateY(40px); opacity: 0; }
+            70% { transform: scale(1.1) translateY(-5px); opacity: 1; }
+            100% { transform: scale(1) translateY(0); opacity: 1; }
+        }
+
+        @keyframes mushroomBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(255, 235, 59, 0.6)); }
+            50% { filter: drop-shadow(0 0 18px rgba(255, 235, 59, 0.9)); }
+        }
+
+        .mushroom-container {
+            animation: mushroomPop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .mushroom-idle {
+            animation: mushroomBounce 2.5s ease-in-out infinite;
+        }
+
+        .mushroom-glow {
+            animation: pulseGlow 1.8s ease-in-out infinite;
+        }
+
+        /* Score Floating Popup */
+        @keyframes floatUpFade {
+            0% { opacity: 1; transform: translateY(0) scale(1); }
+            100% { opacity: 0; transform: translateY(-60px) scale(1.3); }
+        }
+
+        .floating-score {
+            position: absolute;
+            animation: floatUpFade 1s ease-out forwards;
+            pointer-events: none;
+            font-weight: 900;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
+            z-index: 50;
+        }
+
+        /* Grass Ground Details */
+        .grass-layer {
+            background-image: radial-gradient(#4caf50 15%, transparent 16%), radial-gradient(#388e3c 15%, transparent 16%);
+            background-size: 60px 60px;
+            background-position: 0 0, 30px 30px;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #f59e0b;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white min-h-screen flex flex-col justify-between select-none">
+
+    <!-- Top Game Bar -->
+    <header class="w-full bg-slate-900/90 backdrop-blur-md border-b border-amber-500/30 px-4 py-3 sticky top-0 z-40 shadow-xl">
+        <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+            <!-- Title & Badge -->
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-red-500 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/20">
+                    🍄
+                </div>
+                <div>
+                    <h1 class="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-amber-100 to-emerald-300">
+                        ເກມເກັບເຫັດແຂວງຫົວພັນ
+                    </h1>
+                    <p class="text-xs text-amber-200/80 hidden sm:block">ເກັບເຫັດສະຖານທີ່ໃນແຂວງຫົວພັນເພື່ອເອົາຄະແນນ!</p>
+                </div>
+            </div>
+
+            <!-- Game Stats HUD -->
+            <div id="gameStatsHUD" class="flex items-center space-x-2 sm:space-x-4 bg-slate-800/90 px-4 py-2 rounded-2xl border border-slate-700">
+                <!-- Score -->
+                <div class="text-center px-2">
+                    <span class="text-xs text-slate-400 block uppercase font-bold">ຄະແນນ</span>
+                    <span id="scoreDisplay" class="text-xl sm:text-2xl font-black text-amber-400">0</span>
+                </div>
+                
+                <div class="h-8 w-[1px] bg-slate-700"></div>
+
+                <!-- Combo -->
+                <div class="text-center px-2">
+                    <span class="text-xs text-slate-400 block uppercase font-bold">ຄອມໂບ</span>
+                    <span id="comboDisplay" class="text-xl sm:text-2xl font-black text-emerald-400">x1</span>
+                </div>
+
+                <div class="h-8 w-[1px] bg-slate-700"></div>
+
+                <!-- Timer -->
+                <div class="text-center px-2">
+                    <span class="text-xs text-slate-400 block uppercase font-bold">ເວລາ</span>
+                    <span id="timerDisplay" class="text-xl sm:text-2xl font-black text-rose-400">60s</span>
+                </div>
+
+                <div class="h-8 w-[1px] bg-slate-700"></div>
+
+                <!-- Hearts/Lives -->
+                <div class="text-center px-2">
+                    <span class="text-xs text-slate-400 block uppercase font-bold">ຊີວິດ</span>
+                    <div id="heartsContainer" class="flex space-x-1 text-red-500 text-lg">
+                        <i class="fa-solid fa-heart"></i>
+                        <i class="fa-solid fa-heart"></i>
+                        <i class="fa-solid fa-heart"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Action Controls -->
+            <div class="flex items-center space-x-2">
+                <button id="soundToggleBtn" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 transition border border-slate-700">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                </button>
+                <button id="infoBtn" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 transition border border-slate-700">
+                    <i class="fa-solid fa-circle-question"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Playground Container -->
+    <main class="relative flex-1 max-w-5xl w-full mx-auto my-3 px-4 flex flex-col justify-center">
+        <!-- Main Game Forest Arena -->
+        <div id="gameArena" class="game-bg relative w-full h-[520px] sm:h-[580px] rounded-3xl border-4 border-amber-900/60 shadow-2xl overflow-hidden flex flex-col justify-between p-4">
+            
+            <!-- Atmospheric Weather / Clouds -->
+            <div class="absolute inset-0 pointer-events-none opacity-30">
+                <div class="absolute top-4 left-10 text-6xl text-white/40 animate-pulse"><i class="fa-solid fa-cloud"></i></div>
+                <div class="absolute top-12 right-20 text-7xl text-white/30"><i class="fa-solid fa-cloud"></i></div>
+                <div class="absolute top-8 left-1/2 text-5xl text-white/20"><i class="fa-solid fa-cloud"></i></div>
+            </div>
+
+            <!-- Toast / Fact Info Display Popup -->
+            <div id="factToast" class="hidden absolute top-4 left-1/2 -translate-x-1/2 z-30 max-w-md w-11/12 bg-slate-900/95 border-2 border-amber-400 text-white px-4 py-3 rounded-2xl shadow-2xl backdrop-blur-md flex items-center space-x-3 transition-all duration-300">
+                <div id="factToastIcon" class="text-3xl">💡</div>
+                <div class="flex-1 text-sm">
+                    <p id="factToastTitle" class="font-bold text-amber-300 text-base">ຂໍ້ມູນສະຖານທີ່</p>
+                    <p id="factToastText" class="text-slate-200">...</p>
+                </div>
+            </div>
+
+            <!-- Start / Welcome Screen Overlay -->
+            <div id="startScreen" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center">
+                <div class="w-24 h-24 mb-4 rounded-3xl bg-gradient-to-tr from-amber-500 via-orange-500 to-red-600 flex items-center justify-center text-6xl shadow-2xl shadow-orange-500/40 animate-bounce">
+                    🍄
+                </div>
+                <h2 class="text-3xl sm:text-4xl font-extrabold text-amber-300 mb-2">ເກມເກັບເຫັດແຂວງຫົວພັນ</h2>
+                <p class="text-slate-300 max-w-md mb-6 leading-relaxed text-sm sm:text-base">
+                    ທົດສອບຄວາມຮູ້ກ່ຽວກັບສະຖານທີ່ໃນ <span class="text-amber-400 font-bold">ແຂວງຫົວພັນ</span>!<br>
+                    ເກັບເຫັດທີ່ມີຊື່ສະຖານທີ່ໃນ <span class="text-emerald-400 font-bold">ແຂວງຫົວພັນ (+100 ຄະແນນ)</span><br>
+                    ຫຼີກເວັ້ນເຫັດທີ່ມີຊື່ສະຖານທີ່ແຂວງອື່ນ <span class="text-rose-400 font-bold">(-50 ຄະແນນ & ເສຍຊີວິດ)</span>
+                </p>
+
+                <!-- High Score Banner -->
+                <div class="bg-slate-800/80 px-6 py-2.5 rounded-2xl border border-slate-700 mb-6 flex items-center space-x-3">
+                    <i class="fa-solid fa-trophy text-amber-400 text-xl"></i>
+                    <span class="text-sm text-slate-300">ຄະແນນສູງສຸດ: <strong id="highScoreStart" class="text-amber-400 text-lg">0</strong></span>
+                </div>
+
+                <button id="startGameBtn" class="px-8 py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xl rounded-2xl shadow-xl shadow-emerald-600/40 hover:scale-105 active:scale-95 transition transform flex items-center space-x-3">
+                    <i class="fa-solid fa-play"></i>
+                    <span>ເລີ່ມຫຼິ້ນເກມ</span>
+                </button>
+            </div>
+
+            <!-- Game Over Screen Overlay -->
+            <div id="gameOverScreen" class="hidden absolute inset-0 bg-slate-950/90 backdrop-blur-md z-30 flex flex-col items-center justify-center p-6 text-center">
+                <div id="gameOverBadge" class="w-20 h-20 mb-3 rounded-full bg-slate-800 flex items-center justify-center text-5xl shadow-xl">
+                    🏆
+                </div>
+                <h2 id="gameOverTitle" class="text-3xl font-black text-amber-400 mb-1">ໝົດເວລາ / ເກມຈົບ!</h2>
+                <p id="gameOverSub" class="text-slate-300 mb-4 text-sm">ທ່ານໄດ້ທຳຄວາມພະຍາຍາມຢ່າງດີ!</p>
+
+                <!-- Final Stats Card -->
+                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 w-full max-w-xs mb-6 space-y-2">
+                    <div class="flex justify-between items-center text-sm text-slate-300">
+                        <span>ຄະແນນທີ່ໄດ້:</span>
+                        <span id="finalScore" class="text-xl font-bold text-amber-400">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-slate-300">
+                        <span>ເກັບເຫັດຖືກຕ້ອງ:</span>
+                        <span id="finalCorrectCount" class="text-lg font-bold text-emerald-400">0</span>
+                    </div>
+                    <div class="flex justify-between items-center text-sm text-slate-300">
+                        <span>ເກັບເຫັດຜິດ:</span>
+                        <span id="finalWrongCount" class="text-lg font-bold text-rose-400">0</span>
+                    </div>
+                    <div class="border-t border-slate-800 pt-2 flex justify-between items-center text-sm text-slate-300">
+                        <span>ຄະແນນສູງສຸດ:</span>
+                        <span id="finalHighScore" class="text-lg font-bold text-amber-300">0</span>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button id="restartBtn" class="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-base rounded-xl shadow-lg transition transform hover:scale-105 active:scale-95 flex items-center space-x-2">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>ຫຼິ້ນໃໝ່</span>
+                    </button>
+                    <button id="showPlacesBtn" class="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold text-base rounded-xl border border-slate-700 transition">
+                        <i class="fa-solid fa-book"></i>
+                        <span>ເບິ່ງລາຍຊື່ສະຖານທີ່</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mushroom Spawning Grid Field -->
+            <div id="mushroomGrid" class="relative w-full h-full grid grid-cols-3 sm:grid-cols-4 grid-rows-3 gap-2 sm:gap-4 p-2 z-10">
+                <!-- Mushrooms dynamically injected here -->
+            </div>
+
+            <!-- Forest Grass Bottom Decoration -->
+            <div class="grass-layer w-full h-12 rounded-b-2xl border-t border-emerald-600/40 relative flex items-center justify-around text-emerald-300 opacity-80">
+                <i class="fa-solid fa-seedling text-lg"></i>
+                <i class="fa-solid fa-tree text-2xl"></i>
+                <i class="fa-solid fa-leaf text-lg"></i>
+                <i class="fa-solid fa-tree text-xl"></i>
+                <i class="fa-solid fa-seedling text-lg"></i>
+            </div>
+        </div>
+    </main>
+
+    <!-- Educational Info Modal (Houaphanh Places List & Rules) -->
+    <div id="infoModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-amber-500/40 rounded-3xl max-w-xl w-full p-6 max-h-[85vh] flex flex-col shadow-2xl relative">
+            <button id="closeInfoBtn" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl p-2">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h3 class="text-2xl font-black text-amber-300 mb-3 flex items-center space-x-2">
+                <i class="fa-solid fa-map-location-dot"></i>
+                <span>ສະຖານທີ່ສຳຄັນ ແຂວງຫົວພັນ</span>
+            </h3>
+
+            <div class="overflow-y-auto flex-1 pr-2 space-y-4 my-2 text-sm text-slate-300">
+                <div class="bg-slate-800/60 p-3 rounded-2xl border border-slate-700">
+                    <h4 class="font-bold text-amber-400 mb-1">🎯 ກົດກະເກມ:</h4>
+                    <ul class="list-disc list-inside space-y-1 text-slate-200">
+                        <li>ກົດເກັບເຫັດທີ່ມີຊື່ສະຖານທີ່ໃນ <strong class="text-emerald-400">ແຂວງຫົວພັນ</strong> ໄດ້ +100 ຄະແນນ.</li>
+                        <li>ຖ້າເກັບຕິດຕໍ່ກັນໄດ້ 3 ເທື່ອຂຶ້ນໄປ ຈະໄດ້ <strong class="text-amber-300">ຄອມໂບ ຄູນຄະແນນ!</strong></li>
+                        <li>ຖ້າກົດເກັບເຫັດສະຖານທີ່ແຂວງອື່ນ ຈະຖືກລົບ -50 ຄະແນນ ແລະ ເສຍ 1 ຊີວິດ!</li>
+                        <li>ເກມມີເວລາ limited 60 ວິນາທີ ຫຼື ຈົນກວ່າຊີວິດຈະໝົດ.</li>
+                    </ul>
+                </div>
+
+                <h4 class="font-bold text-emerald-400 text-base">📍 ລາຍຊື່ສະຖານທີ່ໃນແຂວງຫົວພັນ (ເກັບໄດ້ ✅):</h4>
+                <div id="houaphanhPlacesList" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <!-- Populated via JS -->
+                </div>
+
+                <h4 class="font-bold text-rose-400 text-base pt-2">❌ ຕົວຢ່າງສະຖານທີ່ແຂວງອື່ນ (ຢ່າເກັບ 🚫):</h4>
+                <div id="otherPlacesList" class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <!-- Populated via JS -->
+                </div>
+            </div>
+
+            <button id="modalOkBtn" class="mt-4 w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl">
+                ເຂົ້າໃຈແລ້ວ
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-3 text-xs text-slate-400 bg-slate-950/80 border-t border-slate-800">
+        <p>© 2026 ເກມເກັບເຫັດແຂວງຫົວພັນ (Houaphanh Mushroom Game) | ສຶກສາສະຖານທີ່ທ່ອງທ່ຽວລາວ</p>
+    </footer>
+
+    <script>
+        // Places located in Houaphanh Province
+        const HOUAPHANH_PLACES = [
+            { name: "ຖ້ຳປິວ", info: "ຖ້ຳປິວ ເປັນສະຖານທີ່ປະຫວັດສາດບ່ອນທີ່ເຄີຍຖືກຖິ້ມລະເບີດໃນສົງຄາມ ຢູ່ເມືອງຄ່ຳ ແຂວງຫົວພັນ" },
+            { name: "ເມືອງຊຳເໜືອ", info: "ເມືອງຊຳເໜືອ ເປັນເທດສະບານແຂວງຫົວພັນ ມີຊື່ສຽງດ້ານຜ້າໄໝ ແລະ ອາຫານພື້ນເມືອງ" },
+            { name: "ເມືອງວຽງໄຊ", info: "ເມືອງວຽງໄຊ ເມືອງແຫ່ງຖ້ຳປະຫວັດສາດ ຖານທີ່ໝັ້ນການປະຕິວັດຂອງຜູ້ນຳລາວ" },
+            { name: "ຖ້ຳທ່ານຜູ້ນຳ", info: "ຖ້ຳທ່ານຜູ້ນຳ ວຽງໄຊ ເປັນກຸ່ມຖ້ຳທີ່ນຳໃຊ້ເປັນສູນບັນຊາການໃນປານສົງຄາມຢູ່ຫົວພັນ" },
+            { name: "ຕາດສະເລີຍ", info: "ນ້ຳຕົກຕາດສະເລີຍ (Tad Saleuy) ນ້ຳຕົກຕາດທີ່ສວຍງາມ ແລະ ມີຊື່ສຽງຂອງແຂວງຫົວພັນ" },
+            { name: "ຫີນຕັ້ງຫົວພັນ", info: "ຫີນຕັ້ງສວນມອນ / ຫີນຕັ້ງຫົວພັນ ບູຮານສະຖານປະຫວັດສາດອາຍຸຫຼາຍພັນປີ" },
+            { name: "ເມືອງສົບເບົາ", info: "ເມືອງສົບເບົາ ເມືອງໜຶ່ງໃນແຂວງຫົວພັນ ຕິດກັບຊາຍແດນຫວຽດນາມ" },
+            { name: "ເມືອງຫົວເມືອງ", info: "ເມືອງຫົວເມືອງ ເມືອງໃນແຂວງຫົວພັນ ມີບ້ານຮ່າມ ແລະ ນ້ຳອຸ່ນທຳມະຊາດ" },
+            { name: "ເມືອງຊຳໃຕ້", info: "ເມືອງຊຳໃຕ້ ເມືອງທີ່ມີຊື່ສຽງດ້ານການຕໍ່າຜ້າໄໝລາຍບູຮານໃນແຂວງຫົວພັນ" },
+            { name: "ຜາທີ", info: "ຜາທີ (Pha Thi) ພູຜາສູງຊັນທີ່ມີຄວາມສຳຄັນທາງປະຫວັດສາດໃນແຂວງຫົວພັນ" },
+            { name: "ນ້ຳອຸ່ນເມືອງຮ່າມ", info: "ນ້ຳອຸ່ນທຳມະຊາດເມືອງຮ່າມ ຢູ່ເມືອງຫົວເມືອງ ແຂວງຫົວພັນ" },
+            { name: "ເມືອງແອດ", info: "ເມືອງແອດ ເມືອງທາງພາກເໜືອຂອງແຂວງຫົວພັນ" },
+            { name: "ເມືອງຊອນ", info: "ເມືອງຊອນ ເມືອງໜຶ່ງໃນແຂວງຫົວພັນ" },
+            { name: "ເມືອງກວັນ", info: "ເມືອງກວັນ ເມືອງໃນເຂດພູດອຍຂອງແຂວງຫົວພັນ" }
+        ];
+
+        // Places NOT in Houaphanh Province (Other Lao Provinces)
+        const OTHER_PLACES = [
+            { name: "ທາດຫຼວງ", location: "ນະຄອນຫຼວງວຽງຈັນ" },
+            { name: "ຕາດກວ້າງຊີ", location: "ແຂວງຫຼວງພະບາງ" },
+            { name: "ວັດພູ", location: "ແຂວງຈຳປາສັກ" },
+            { name: "ຖ້ຳກອງລໍ", location: "ແຂວງຄຳມ່ວນ" },
+            { name: "ວັງວຽງ", location: "ແຂວງວຽງຈັນ" },
+            { name: "ພູເບ້ຍ", location: "ແຂວງໄຊສົມບູນ" },
+            { name: "ຕາດຟານ", location: "ແຂວງຈຳປາສັກ" },
+            { name: "ຫໍພະແກ້ວ", location: "ນະຄອນຫຼວງວຽງຈັນ" },
+            { name: "ປະຕູໄຊ", location: "ນະຄອນຫຼວງວຽງຈັນ" },
+            { name: "ຕາດເຍືອງ", location: "ແຂວງຈຳປາສັກ" },
+            { name: "ສີ່ພັນດອນ", location: "ແຂວງຈຳປາສັກ" },
+            { name: "ຖ້ຳນາງແອ່ນ", location: "ແຂວງຄຳມ່ວນ" },
+            { name: "ເມືອງຫຼວງພະບາງ", location: "ແຂວງຫຼວງພະບາງ" },
+            { name: "ພູຊີ", location: "ແຂວງຫຼວງພະບາງ" },
+            { name: "ຕາດຄອນພະເພັງ", location: "ແຂວງຈຳປາສັກ" }
+        ];
+
+        // Mushroom Visual Skins (Colors and icons)
+        const MUSHROOM_SKINS = [
+            { capColor: "bg-red-500", spots: "bg-white", stem: "bg-amber-100", type: "red" },
+            { capColor: "bg-amber-500", spots: "bg-yellow-200", stem: "bg-orange-100", type: "amber" },
+            { capColor: "bg-emerald-600", spots: "bg-emerald-200", stem: "bg-slate-100", type: "emerald" },
+            { capColor: "bg-purple-600", spots: "bg-purple-200", stem: "bg-pink-100", type: "purple" },
+            { capColor: "bg-indigo-600", spots: "bg-indigo-200", stem: "bg-slate-100", type: "indigo" }
+        ];
+
+        let score = 0;
+        let combo = 0;
+        let lives = 3;
+        let timeLeft = 60;
+        let gameActive = false;
+        let timerInterval = null;
+        let spawnInterval = null;
+        let soundEnabled = true;
+        let correctPicked = 0;
+        let wrongPicked = 0;
+        let toastTimeout = null;
+
+        // Web Audio API Synthesizer
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Sound FX Synthesizer functions
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'correct') {
+                    // Happy High Chime Tone
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523.25, now); // C5
+                    osc.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'combo') {
+                    // Double High Tone
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(659.25, now); // E5
+                    osc.frequency.setValueAtTime(987.77, now + 0.1); // B5
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                } else if (type === 'wrong') {
+                    // Low Buzz/Thud
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, now);
+                    osc.frequency.exponentialRampToValueAtTime(80, now + 0.25);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'gameover') {
+                    // Descending Sad Tone
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.linearRampToValueAtTime(150, now + 0.6);
+                    gain.gain.setValueAtTime(0.4, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                    osc.start(now);
+                    osc.stop(now + 0.6);
+                }
+            } catch (e) {
+                console.error("Audio error", e);
+            }
+        }
+
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const heartsContainer = document.getElementById('heartsContainer');
+        const mushroomGrid = document.getElementById('mushroomGrid');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const infoModal = document.getElementById('infoModal');
+        const soundToggleBtn = document.getElementById('soundToggleBtn');
+        const soundIcon = document.getElementById('soundIcon');
+        const factToast = document.getElementById('factToast');
+
+        function updateHeartsUI() {
+            heartsContainer.innerHTML = '';
+            for (let i = 0; i < 3; i++) {
+                const heart = document.createElement('i');
+                if (i < lives) {
+                    heart.className = 'fa-solid fa-heart text-red-500 transition scale-110';
+                } else {
+                    heart.className = 'fa-regular fa-heart text-slate-600 opacity-50';
+                }
+                heartsContainer.appendChild(heart);
+            }
+        }
+
+        function showFactToast(title, message, isCorrect) {
+            clearTimeout(toastTimeout);
+            const toastTitle = document.getElementById('factToastTitle');
+            const toastText = document.getElementById('factToastText');
+            const toastIcon = document.getElementById('factToastIcon');
+
+            toastTitle.textContent = title;
+            toastText.textContent = message;
+
+            if (isCorrect) {
+                factToast.className = factToast.className.replace(/border-\w+-500/, 'border-emerald-400');
+                toastTitle.className = "font-bold text-emerald-400 text-base";
+                toastIcon.textContent = "✅";
+            } else {
+                factToast.className = factToast.className.replace(/border-\w+-500/, 'border-rose-500');
+                toastTitle.className = "font-bold text-rose-400 text-base";
+                toastIcon.textContent = "❌";
+            }
+
+            factToast.classList.remove('hidden');
+
+            toastTimeout = setTimeout(() => {
+                factToast.classList.add('hidden');
+            }, 2600);
+        }
+
+        function createFloatingText(x, y, text, isPositive) {
+            const el = document.createElement('div');
+            el.className = `floating-score text-xl ${isPositive ? 'text-yellow-300' : 'text-red-400'}`;
+            el.textContent = text;
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+            document.body.appendChild(el);
+
+            setTimeout(() => el.remove(), 1000);
+        }
+
+        function startGame() {
+            score = 0;
+            combo = 0;
+            lives = 3;
+            timeLeft = 60;
+            correctPicked = 0;
+            wrongPicked = 0;
+            gameActive = true;
+
+            scoreDisplay.textContent = '0';
+            comboDisplay.textContent = 'x1';
+            timerDisplay.textContent = '60s';
+            updateHeartsUI();
+
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            mushroomGrid.innerHTML = '';
+
+            initAudio();
+
+            clearInterval(timerInterval);
+            clearInterval(spawnInterval);
+
+            timerInterval = setInterval(() => {
+                if (!gameActive) return;
+                timeLeft--;
+                timerDisplay.textContent = `${timeLeft}s`;
+
+                if (timeLeft <= 10) {
+                    timerDisplay.classList.add('animate-ping', 'text-red-500');
+                    setTimeout(() => timerDisplay.classList.remove('animate-ping'), 500);
+                } else {
+                    timerDisplay.classList.remove('text-red-500');
+                }
+
+                if (timeLeft <= 0) {
+                    endGame(false, "ໝົດເວລາ!");
+                }
+            }, 1000);
+
+            spawnMushroom();
+            spawnInterval = setInterval(() => {
+                if (!gameActive) return;
+                spawnMushroom();
+            }, 1400);
+        }
+
+        function spawnMushroom() {
+            const currentSlots = document.querySelectorAll('.mushroom-cell');
+            if (currentSlots.length >= 6) return;
+
+            const isHouaphanh = Math.random() < 0.65;
+            let item;
+
+            if (isHouaphanh) {
+                const place = HOUAPHANH_PLACES[Math.floor(Math.random() * HOUAPHANH_PLACES.length)];
+                item = { ...place, isHouaphanh: true };
+            } else {
+                const place = OTHER_PLACES[Math.floor(Math.random() * OTHER_PLACES.length)];
+                item = { name: place.name, info: `${place.name} ຢູ່ ${place.location} (ບໍ່ແມ່ນແຂວງຫົວພັນ!)`, isHouaphanh: false };
+            }
+
+            const skin = MUSHROOM_SKINS[Math.floor(Math.random() * MUSHROOM_SKINS.length)];
+
+            const cell = document.createElement('div');
+            cell.className = 'mushroom-cell mushroom-container relative flex flex-col items-center justify-center cursor-pointer transform hover:scale-110 active:scale-95 transition group p-2';
+
+            cell.innerHTML = `
+                <div class="relative flex flex-col items-center">
+                    <div class="w-16 h-12 sm:w-20 sm:h-14 ${skin.capColor} rounded-t-full shadow-lg relative flex items-center justify-center border-b-4 border-black/20">
+                        <div class="w-3 h-3 ${skin.spots} rounded-full absolute top-2 left-3 opacity-80"></div>
+                        <div class="w-2.5 h-2.5 ${skin.spots} rounded-full absolute top-1 right-4 opacity-80"></div>
+                        <div class="w-2 h-2 ${skin.spots} rounded-full absolute bottom-2 left-6 opacity-80"></div>
+                    </div>
+                    <div class="w-7 h-8 sm:w-9 sm:h-10 ${skin.stem} -mt-1 rounded-b-xl border-x-2 border-b-2 border-slate-700/30 shadow-md flex items-center justify-center">
+                        <div class="w-1 h-3 bg-black/10 rounded-full"></div>
+                    </div>
+                    <div class="w-14 h-3 bg-emerald-800/80 rounded-full -mt-2 blur-[1px]"></div>
+                </div>
+                <div class="mt-1.5 px-2.5 py-1 bg-slate-900/90 border border-amber-400/50 rounded-xl shadow-xl text-xs sm:text-sm font-bold text-amber-200 text-center tracking-wide group-hover:border-amber-300">
+                    ${item.name}
+                </div>
+            `;
+
+            cell.addEventListener('click', (e) => handleMushroomClick(e, item, cell));
+            mushroomGrid.appendChild(cell);
+
+            const despawnTimer = setTimeout(() => {
+                if (cell.parentNode) {
+                    cell.classList.add('opacity-0', 'scale-50');
+                    setTimeout(() => cell.remove(), 200);
+                }
+            }, 3800);
+
+            cell.dataset.timer = despawnTimer;
+        }
+
+        function handleMushroomClick(event, item, element) {
+            if (!gameActive) return;
+
+            clearTimeout(element.dataset.timer);
+
+            const rect = element.getBoundingClientRect();
+            const clickX = rect.left + rect.width / 2;
+            const clickY = rect.top;
+
+            if (item.isHouaphanh) {
+                combo++;
+                correctPicked++;
+                const comboBonus = Math.min(combo * 10, 50);
+                const pointsGained = 100 + comboBonus;
+                score += pointsGained;
+
+                scoreDisplay.textContent = score;
+                comboDisplay.textContent = `x${combo}`;
+
+                if (combo >= 3) {
+                    playSound('combo');
+                    comboDisplay.classList.add('animate-bounce');
+                    setTimeout(() => comboDisplay.classList.remove('animate-bounce'), 500);
+                } else {
+                    playSound('correct');
+                }
+
+                createFloatingText(clickX, clickY, `+${pointsGained}`, true);
+                showFactToast(`✅ ຖືກຕ້ອງ! (${item.name})`, item.info, true);
+
+            } else {
+                combo = 0;
+                wrongPicked++;
+                score = Math.max(0, score - 50);
+                lives--;
+
+                scoreDisplay.textContent = score;
+                comboDisplay.textContent = `x1`;
+                updateHeartsUI();
+
+                playSound('wrong');
+                createFloatingText(clickX, clickY, `-50 ❤️`, false);
+                showFactToast(`❌ ຜິດແລ້ວ! (${item.name})`, item.info, false);
+
+                const arena = document.getElementById('gameArena');
+                arena.classList.add('translate-x-2');
+                setTimeout(() => arena.classList.remove('translate-x-2'), 100);
+
+                if (lives <= 0) {
+                    endGame(true, "ຊີວິດໝົດແລ້ວ!");
+                    return;
+                }
+            }
+
+            element.classList.add('scale-125', 'opacity-0');
+            setTimeout(() => element.remove(), 150);
+        }
+
+        function endGame(outOfLives = false, reason = "") {
+            gameActive = false;
+            clearInterval(timerInterval);
+            clearInterval(spawnInterval);
+
+            playSound('gameover');
+
+            const currentHighScore = parseInt(localStorage.getItem('houaphanh_mushroom_highscore') || '0');
+            if (score > currentHighScore) {
+                localStorage.setItem('houaphanh_mushroom_highscore', score.toString());
+            }
+
+            const updatedHighScore = Math.max(score, currentHighScore);
+
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('finalCorrectCount').textContent = correctPicked;
+            document.getElementById('finalWrongCount').textContent = wrongPicked;
+            document.getElementById('finalHighScore').textContent = updatedHighScore;
+            document.getElementById('gameOverTitle').textContent = outOfLives ? "💔 ຊີວິດໝົດແລ້ວ!" : "🎉 ໝົດເວລາ!";
+            document.getElementById('gameOverSub').textContent = `ທ່ານໄດ້ເກັບເຫັດຖືກຕ້ອງ ${correctPicked} ດອກ`;
+
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function populatePlacesInfo() {
+            const hContainer = document.getElementById('houaphanhPlacesList');
+            const oContainer = document.getElementById('otherPlacesList');
+
+            hContainer.innerHTML = HOUAPHANH_PLACES.map(p => `
+                <div class="p-2.5 bg-emerald-950/60 border border-emerald-500/30 rounded-xl flex items-center space-x-2">
+                    <span class="text-emerald-400 font-bold text-base">🍄</span>
+                    <div>
+                        <p class="font-bold text-amber-200">${p.name}</p>
+                        <p class="text-xs text-slate-300 leading-snug">${p.info}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            oContainer.innerHTML = OTHER_PLACES.map(p => `
+                <div class="p-2.5 bg-rose-950/50 border border-rose-500/30 rounded-xl flex items-center space-x-2">
+                    <span class="text-rose-400 font-bold text-base">🚫</span>
+                    <div>
+                        <p class="font-bold text-slate-200">${p.name}</p>
+                        <p class="text-xs text-rose-300">${p.location}</p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        document.getElementById('startGameBtn').addEventListener('click', startGame);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+
+        document.getElementById('infoBtn').addEventListener('click', () => {
+            populatePlacesInfo();
+            infoModal.classList.remove('hidden');
+        });
+
+        document.getElementById('showPlacesBtn').addEventListener('click', () => {
+            populatePlacesInfo();
+            infoModal.classList.remove('hidden');
+        });
+
+        document.getElementById('closeInfoBtn').addEventListener('click', () => {
+            infoModal.classList.add('hidden');
+        });
+
+        document.getElementById('modalOkBtn').addEventListener('click', () => {
+            infoModal.classList.add('hidden');
+        });
+
+        soundToggleBtn.addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            if (soundEnabled) {
+                soundIcon.className = "fa-solid fa-volume-high";
+                soundToggleBtn.classList.remove('opacity-50');
+            } else {
+                soundIcon.className = "fa-solid fa-volume-xmark";
+                soundToggleBtn.classList.add('opacity-50');
+            }
+        });
+
+        const storedHS = localStorage.getItem('houaphanh_mushroom_highscore') || '0';
+        document.getElementById('highScoreStart').textContent = storedHS;
+
+        document.addEventListener('dragstart', (e) => e.preventDefault());
+    </script>
+</body>
+</html>
